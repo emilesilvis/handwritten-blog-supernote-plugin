@@ -21,6 +21,11 @@ The installable package is written to `build/outputs/HandwrittenBlog.snplg` (the
 `build/` directory is regenerated locally). For a non-production device spike, change
 `API_BASE_URL` in `src/api.ts` to the HTTPS acceptance endpoint before building.
 
+The production Docker build regenerates that package and places it at the same path inside
+the application image. Signed-in authors with the `supernote_plugin` feature can download it
+from the Supernote setup screen; it is not exposed as a public static file. Set
+`SUPERNOTE_PLUGIN_PACKAGE_PATH` only when a deployment stores the built package elsewhere.
+
 Copy the `.snplg` file to the tablet's `MyStyle` directory, then install it from
 Settings → Apps → Plugins → Add Plugin. The official installation and packaging guide is
 <https://docs.supernote.com/en/first-plugin>.
