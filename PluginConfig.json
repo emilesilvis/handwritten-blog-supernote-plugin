@@ -1,0 +1,11 @@
+{
+  "name": "handwritten.blog",
+  "pluginKey": "HandwrittenBlog",
+  "pluginID": "hwblog147device1",
+  "iconPath": "assets/icon.png",
+  "desc": "Send the open NOTE to a private handwritten.blog draft",
+  "versionCode": "1",
+  "versionName": "0.0.1",
+  "jsMainPath": "index",
+  "author": "handwritten.blog"
+}
