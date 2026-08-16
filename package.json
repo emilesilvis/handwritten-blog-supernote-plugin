@@ -1,8 +1,13 @@
 {
   "name": "HandwrittenBlog",
   "version": "0.0.1",
-  "description": "Private on-device Supernote sender for handwritten.blog",
+  "description": "Open-source Supernote plugin for sending notebooks to handwritten.blog",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emilesilvis/handwritten-blog-supernote-plugin.git"
+  },
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",

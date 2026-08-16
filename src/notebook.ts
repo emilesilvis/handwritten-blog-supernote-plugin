@@ -46,7 +46,7 @@ export async function currentNotebook(): Promise<NotebookContext> {
     throw new Error('This NOTE does not contain a readable page.');
   }
   if (pageCount > MAX_PAGES) {
-    throw new Error(`This private spike accepts at most ${MAX_PAGES} pages.`);
+    throw new Error(`This pilot accepts at most ${MAX_PAGES} pages.`);
   }
 
   const pluginDirectory = await PluginManager.getPluginDirPath();

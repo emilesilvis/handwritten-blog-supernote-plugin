@@ -1,13 +1,55 @@
-# handwritten.blog for Supernote
+# handwritten.blog plugin for Supernote
 
-Private, user-triggered Supernote plugin spike. While a NOTE is open, the plugin saves it,
-renders each page through the official SDK, verifies an ordered SHA-256 manifest, and sends
-only the rendered PNGs to a private handwritten.blog draft.
+This repository contains the open-source Supernote client for
+[handwritten.blog](https://handwritten.blog). It sends the pages of one explicitly open
+NOTE to the user's blog as a private draft.
 
-The project was generated from Supernote's official React Native 0.79.2 template. It does
-not log in to Supernote Cloud, upload `.note` files, or persist the handwritten.blog bearer.
+The plugin is built with Supernote's official plugin SDK. It is unofficial and is not
+endorsed by Supernote or Ratta.
+
+## How it fits together
+
+```text
+Supernote NOTE
+  -> the user taps “Send to handwritten.blog”
+  -> the official SDK saves and renders the open NOTE
+  -> this plugin uploads the rendered pages
+  -> handwritten.blog creates or updates one private draft
+```
+
+The handwritten.blog service and backend are separate from this client and are not part of
+this repository.
+
+## Availability and compatibility
+
+The source is public, but the handwritten.blog Supernote integration is still a
+hardware-gated pilot. The installable package is available only to enabled accounts, and
+builds from this repository are for development and controlled testing until supported
+device and firmware combinations have passed the hardware acceptance matrix.
+
+Nothing is published automatically. Authors review the resulting private draft before
+adding it to their blog.
+
+## Security and privacy model
+
+The plugin does not ask for a Supernote password, OTP, Cloud token, or access to the user's
+Cloud library. It does not upload the native `.note` file.
+
+Pairing uses a short-lived, one-time code from handwritten.blog. The returned upload
+credential exists only in the JavaScript process and is scoped to this Supernote import
+endpoint; restarting the plugin or tablet may require pairing again.
+
+For every explicit send, the plugin:
+
+1. saves the open NOTE through the official SDK;
+2. renders its pages as PNGs in the SDK-provided plugin directory;
+3. hashes every page and the ordered revision;
+4. uploads the complete ordered page set over HTTPS; and
+5. removes the temporary rendered PNGs.
 
 ## Build
+
+Node.js 18 or later is required.
 
 ```sh
 npm ci
@@ -17,18 +59,14 @@ npm test -- --runInBand
 ./buildPlugin.sh
 ```
 
-The installable package is written to `build/outputs/HandwrittenBlog.snplg` (the ignored
-`build/` directory is regenerated locally). For a non-production device spike, change
-`API_BASE_URL` in `src/api.ts` to the HTTPS acceptance endpoint before building.
-
-The production Docker build regenerates that package and places it at the same path inside
-the application image. Signed-in authors with the `supernote_plugin` feature can download it
-from the Supernote setup screen; it is not exposed as a public static file. Set
-`SUPERNOTE_PLUGIN_PACKAGE_PATH` only when a deployment stores the built package elsewhere.
+The installable package is written to `build/outputs/HandwrittenBlog.snplg`. For a
+non-production device test, change `API_BASE_URL` in `src/api.ts` to the HTTPS acceptance
+endpoint before building.
 
 Copy the `.snplg` file to the tablet's `MyStyle` directory, then install it from
-Settings → Apps → Plugins → Add Plugin. The official installation and packaging guide is
-<https://docs.supernote.com/en/first-plugin>.
+Settings → Apps → Plugins → Add Plugin. See Supernote's
+[plugin guide](https://docs.supernote.com/en/first-plugin) for the official template,
+packaging, and installation instructions.
 
 ## Device contract
 
@@ -39,9 +77,9 @@ Settings → Apps → Plugins → Add Plugin. The official installation and pack
 - A stable random source UUID is stored as empty directory markers under the SDK-provided
   plugin directory. A renamed NOTE requires choosing its former name, so mutable paths do
   not silently create a second post.
-- Rendered PNGs live under the plugin directory and are removed after upload.
-- The upload bearer lives only in the JavaScript process. A plugin/device restart may
-  require a new one-time pairing code until secure Keystore-backed plugin storage is proven.
+- Rendered PNGs are removed after upload.
+- The upload credential lives only in the JavaScript process.
 
-See [`docs/supernote-plugin-spike.md`](../docs/supernote-plugin-spike.md) for the server
-contract, rollout controls, and the hardware acceptance matrix.
+## License
+
+The plugin is available under the [MIT License](LICENSE).
