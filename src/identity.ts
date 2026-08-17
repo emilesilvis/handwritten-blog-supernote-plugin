@@ -112,13 +112,15 @@ async function ensureDirectory(path: string): Promise<boolean> {
 async function listPluginFiles(
   pluginDirectory: string,
 ): Promise<string[] | null | undefined> {
-  const entries: unknown = await callPluginHost(
+  const response: unknown = await callPluginHost(
     'FileUtils.listFiles',
     () => FileUtils.listFiles(pluginDirectory),
   );
-  if (entries === null || entries === undefined) {
-    return entries;
+  if (response === null || response === undefined) {
+    return response;
   }
+
+  const entries = fileListEntries(response);
   if (!Array.isArray(entries)) {
     throw new Error(
       'The Supernote file listing returned an unsupported response.',
@@ -131,16 +133,45 @@ async function listPluginFiles(
     if (typeof entry === 'string') {
       return entry;
     }
-    if (
-      entry &&
-      typeof entry === 'object' &&
-      'path' in entry &&
-      typeof entry.path === 'string'
-    ) {
-      return entry.path;
+    if (entry && typeof entry === 'object') {
+      const record = entry as Record<string, unknown>;
+      const path = firstString(record, [
+        'path',
+        'filePath',
+        'fullPath',
+        'absolutePath',
+      ]);
+      if (path) {
+        return path;
+      }
+
+      const name = firstString(record, ['name', 'fileName', 'displayName']);
+      if (name) {
+        return name.includes('/') ? name : `${pluginDirectory}/${name}`;
+      }
     }
     throw new Error('The Supernote file listing returned an unsupported entry.');
   });
+}
+
+function fileListEntries(response: unknown): unknown {
+  if (Array.isArray(response) || !response || typeof response !== 'object') {
+    return response;
+  }
+
+  const record = response as Record<string, unknown>;
+  return ['files', 'list', 'items']
+    .map(key => record[key])
+    .find(Array.isArray);
+}
+
+function firstString(
+  record: Record<string, unknown>,
+  keys: string[],
+): string | undefined {
+  return keys
+    .map(key => record[key])
+    .find(value => typeof value === 'string') as string | undefined;
 }
 
 function basename(path: string): string {
