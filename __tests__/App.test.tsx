@@ -13,7 +13,9 @@ jest.mock('sn-plugin-lib', () => {
       deleteDir: jest.fn().mockResolvedValue(true),
       deleteFile: jest.fn().mockResolvedValue(true),
       exists: jest.fn().mockResolvedValue(true),
-      listFiles: jest.fn().mockResolvedValue([]),
+      listFiles: jest.fn().mockResolvedValue([
+        {path: '/plugin/PluginConfig.json', type: 1},
+      ]),
       makeDir: jest.fn().mockResolvedValue(true),
     },
     PluginCommAPI: {
@@ -107,7 +109,7 @@ test('sends with the current-document page-count fallback', async () => {
 
   const diagnostic = visibleText(renderer);
   expect(diagnostic).toContain('Diagnostic trace');
-  expect(diagnostic).toContain('Plugin 0.0.4');
+  expect(diagnostic).toContain('Plugin 0.0.5');
   expect(diagnostic).toContain('STAGE render NOTE');
   expect(diagnostic).toContain('CALL PluginFileAPI.generateNotePng');
   expect(diagnostic).toContain(

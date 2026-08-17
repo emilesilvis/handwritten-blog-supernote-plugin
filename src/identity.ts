@@ -112,9 +112,35 @@ async function ensureDirectory(path: string): Promise<boolean> {
 async function listPluginFiles(
   pluginDirectory: string,
 ): Promise<string[] | null | undefined> {
-  return callPluginHost('FileUtils.listFiles', () =>
-    FileUtils.listFiles(pluginDirectory),
+  const entries: unknown = await callPluginHost(
+    'FileUtils.listFiles',
+    () => FileUtils.listFiles(pluginDirectory),
   );
+  if (entries === null || entries === undefined) {
+    return entries;
+  }
+  if (!Array.isArray(entries)) {
+    throw new Error(
+      'The Supernote file listing returned an unsupported response.',
+    );
+  }
+
+  // sn-plugin-lib 0.1.43 declares string[], but its Android RTNFileModule
+  // resolves {path, type} maps. Accept both shapes at this native boundary.
+  return entries.map(entry => {
+    if (typeof entry === 'string') {
+      return entry;
+    }
+    if (
+      entry &&
+      typeof entry === 'object' &&
+      'path' in entry &&
+      typeof entry.path === 'string'
+    ) {
+      return entry.path;
+    }
+    throw new Error('The Supernote file listing returned an unsupported entry.');
+  });
 }
 
 function basename(path: string): string {

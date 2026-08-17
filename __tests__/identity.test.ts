@@ -75,3 +75,16 @@ test('names an unavailable plugin-directory listing bridge', async () => {
     /FileUtils\.listFiles.*device model.*firmware/i,
   );
 });
+
+test('reads the object entries returned by the native Android file module', async () => {
+  (FileUtils.listFiles as jest.Mock).mockResolvedValue([
+    {
+      path: '/plugin/handwritten-blog-identity--source-1--4d6f726e696e67',
+      type: 0,
+    },
+  ]);
+
+  await expect(knownIdentities('/plugin')).resolves.toEqual([
+    {sourceId: 'source-1', displayName: 'Morning'},
+  ]);
+});

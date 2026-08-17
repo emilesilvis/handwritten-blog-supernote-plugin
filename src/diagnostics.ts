@@ -1,4 +1,4 @@
-export const PLUGIN_VERSION = '0.0.4';
+export const PLUGIN_VERSION = '0.0.5';
 
 export type DiagnosticEventKind = 'stage' | 'call' | 'ok' | 'error';
 
