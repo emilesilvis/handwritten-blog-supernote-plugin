@@ -167,8 +167,9 @@ function notebookName(path: string): string {
 }
 
 async function saveCurrentNotebookIfSupported(): Promise<boolean> {
-  const response = await callOptionalPluginHost(() =>
-    PluginNoteAPI.saveCurrentNote(),
+  const response = await callOptionalPluginHost(
+    'PluginNoteAPI.saveCurrentNote',
+    () => PluginNoteAPI.saveCurrentNote(),
   );
   if (response === undefined) {
     return false;

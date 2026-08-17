@@ -1,6 +1,7 @@
 import React from 'react';
 import {Text} from 'react-native';
 import TestRenderer, {act} from 'react-test-renderer';
+import {PluginFileAPI} from 'sn-plugin-lib';
 import App from '../App';
 import {pair} from '../src/api';
 
@@ -94,4 +95,23 @@ test('sends with the current-document page-count fallback', async () => {
 
   expect(visibleText(renderer)).toContain('Upload accepted');
   expect(visibleText(renderer)).not.toContain('undefined is not a function');
+
+  (PluginFileAPI.generateNotePng as jest.Mock).mockRejectedValue(
+    'native render failure',
+  );
+  await act(async () => {
+    await renderer.root
+      .findByProps({accessibilityRole: 'button', disabled: false})
+      .props.onPress();
+  });
+
+  const diagnostic = visibleText(renderer);
+  expect(diagnostic).toContain('Diagnostic trace');
+  expect(diagnostic).toContain('Plugin 0.0.4');
+  expect(diagnostic).toContain('STAGE render NOTE');
+  expect(diagnostic).toContain('CALL PluginFileAPI.generateNotePng');
+  expect(diagnostic).toContain(
+    'ERROR PluginFileAPI.generateNotePng: native render failure',
+  );
+  expect(diagnostic).not.toContain('/storage/emulated/0/Note/Morning.note');
 });

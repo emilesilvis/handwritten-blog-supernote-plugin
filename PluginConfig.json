@@ -4,8 +4,8 @@
   "pluginID": "hwblog147device1",
   "iconPath": "assets/icon.png",
   "desc": "Send the open NOTE to a private handwritten.blog draft",
-  "versionCode": "3",
-  "versionName": "0.0.3",
+  "versionCode": "4",
+  "versionName": "0.0.4",
   "jsMainPath": "index",
   "author": "handwritten.blog"
 }

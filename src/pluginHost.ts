@@ -1,3 +1,5 @@
+import {recordDiagnosticEvent} from './diagnostics';
+
 const SUPPORT_GUIDANCE =
   'Please report this message with your device model and firmware version.';
 
@@ -14,9 +16,13 @@ export async function callPluginHost<T>(
   capability: string,
   invoke: () => Promise<T> | T,
 ): Promise<T> {
+  recordDiagnosticEvent('call', capability);
   try {
-    return await invoke();
+    const result = await invoke();
+    recordDiagnosticEvent('ok', capability);
+    return result;
   } catch (error) {
+    recordDiagnosticEvent('error', capability, error);
     if (isMissingFunction(error)) {
       throw new PluginHostCapabilityError(capability);
     }
@@ -25,11 +31,16 @@ export async function callPluginHost<T>(
 }
 
 export async function callOptionalPluginHost<T>(
+  capability: string,
   invoke: () => Promise<T> | T,
 ): Promise<T | undefined> {
+  recordDiagnosticEvent('call', capability);
   try {
-    return await invoke();
+    const result = await invoke();
+    recordDiagnosticEvent('ok', capability);
+    return result;
   } catch (error) {
+    recordDiagnosticEvent('error', capability, error);
     if (isMissingFunction(error)) {
       return undefined;
     }
@@ -38,6 +49,9 @@ export async function callOptionalPluginHost<T>(
 }
 
 function isMissingFunction(error: unknown): boolean {
+  if (typeof error === 'string') {
+    return /not a function/i.test(error);
+  }
   if (error instanceof Error) {
     return /not a function/i.test(error.message);
   }
