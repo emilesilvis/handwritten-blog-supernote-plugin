@@ -1,5 +1,6 @@
 import {sha256} from 'js-sha256';
 import {FileUtils} from 'sn-plugin-lib';
+import {callPluginHost} from './pluginHost';
 
 export type NotebookIdentity = {
   sourceId: string;
@@ -14,7 +15,7 @@ export async function identityForPath(
   path: string,
 ): Promise<NotebookIdentity | undefined> {
   const identities = await knownIdentities(pluginDirectory);
-  const entries = await FileUtils.listFiles(pluginDirectory);
+  const entries = await listPluginFiles(pluginDirectory);
   const marker = `${pathPrefix}${sha256(path)}--`;
   const pathEntry = (entries || [])
     .map(basename)
@@ -26,7 +27,7 @@ export async function identityForPath(
 export async function knownIdentities(
   pluginDirectory: string,
 ): Promise<NotebookIdentity[]> {
-  const entries = await FileUtils.listFiles(pluginDirectory);
+  const entries = await listPluginFiles(pluginDirectory);
   return (entries || []).flatMap(entry => {
     const name = basename(entry);
     if (!name.startsWith(identityPrefix)) {
@@ -79,7 +80,7 @@ async function persistIdentity(
   const pathDirectory = `${pluginDirectory}/${pathPrefix}${sha256(path)}--${
     identity.sourceId
   }`;
-  const entries = await FileUtils.listFiles(pluginDirectory);
+  const entries = await listPluginFiles(pluginDirectory);
   const previousIdentityDirectories = (entries || []).filter(entry =>
     basename(entry).startsWith(`${identityPrefix}${identity.sourceId}--`),
   );
@@ -99,7 +100,21 @@ async function persistIdentity(
 }
 
 async function ensureDirectory(path: string): Promise<boolean> {
-  return (await FileUtils.exists(path)) || FileUtils.makeDir(path);
+  const exists = await callPluginHost('FileUtils.exists', () =>
+    FileUtils.exists(path),
+  );
+  return (
+    exists ||
+    callPluginHost('FileUtils.makeDir', () => FileUtils.makeDir(path))
+  );
+}
+
+async function listPluginFiles(
+  pluginDirectory: string,
+): Promise<string[] | null | undefined> {
+  return callPluginHost('FileUtils.listFiles', () =>
+    FileUtils.listFiles(pluginDirectory),
+  );
 }
 
 function basename(path: string): string {

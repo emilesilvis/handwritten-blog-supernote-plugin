@@ -1,6 +1,6 @@
 {
   "name": "HandwrittenBlog",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Open-source Supernote plugin for sending notebooks to handwritten.blog",
   "private": true,
   "license": "MIT",

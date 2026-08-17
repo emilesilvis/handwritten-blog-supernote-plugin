@@ -2,11 +2,17 @@ import {sha256} from 'js-sha256';
 import {
   FileUtils,
   PluginCommAPI,
+  PluginDocAPI,
   PluginFileAPI,
   PluginManager,
   PluginNoteAPI,
 } from 'sn-plugin-lib';
 import {fileUri, RenderedPage} from './api';
+import {
+  callOptionalPluginHost,
+  callPluginHost,
+  PluginHostCapabilityError,
+} from './pluginHost';
 
 export const MAX_PAGES = 20;
 
@@ -28,7 +34,9 @@ export async function currentNotebook(): Promise<NotebookContext> {
   const forceSaved = await saveCurrentNotebookIfSupported();
 
   const pathResult = asResponse<string>(
-    await PluginCommAPI.getCurrentFilePath(),
+    await callPluginHost('PluginCommAPI.getCurrentFilePath', () =>
+      PluginCommAPI.getCurrentFilePath(),
+    ),
   );
   const path = requireResult(pathResult, 'Open a NOTE before sending it.');
   if (!path.toLowerCase().endsWith('.note')) {
@@ -36,7 +44,7 @@ export async function currentNotebook(): Promise<NotebookContext> {
   }
 
   const pagesResult = asResponse<number>(
-    await PluginFileAPI.getNoteTotalPageNum(path),
+    await pageCountResponse(path),
   );
   const pageCount = requireResult(
     pagesResult,
@@ -49,7 +57,10 @@ export async function currentNotebook(): Promise<NotebookContext> {
     throw new Error(`This pilot accepts at most ${MAX_PAGES} pages.`);
   }
 
-  const pluginDirectory = await PluginManager.getPluginDirPath();
+  const pluginDirectory = await callPluginHost(
+    'PluginManager.getPluginDirPath',
+    () => PluginManager.getPluginDirPath(),
+  );
   if (!pluginDirectory) {
     throw new Error(
       'The plugin storage directory is unavailable on this firmware.',
@@ -71,10 +82,15 @@ export async function renderNotebook(
 ): Promise<{pages: RenderedPage[]; revisionDigest: string}> {
   const pages: RenderedPage[] = [];
   const outputDirectory = `${notebook.pluginDirectory}/handwritten-blog-render`;
-  if (
-    !(await FileUtils.exists(outputDirectory)) &&
-    !(await FileUtils.makeDir(outputDirectory))
-  ) {
+  const outputExists = await callPluginHost('FileUtils.exists', () =>
+    FileUtils.exists(outputDirectory),
+  );
+  const outputCreated =
+    outputExists ||
+    (await callPluginHost('FileUtils.makeDir', () =>
+      FileUtils.makeDir(outputDirectory),
+    ));
+  if (!outputCreated) {
     throw new Error(
       'The plugin could not prepare its private render directory.',
     );
@@ -89,13 +105,15 @@ export async function renderNotebook(
 
       try {
         const generated = asResponse<boolean>(
-          await PluginFileAPI.generateNotePng({
-            notePath: notebook.path,
-            page: index,
-            times: 1,
-            pngPath: path,
-            type: 1,
-          }),
+          await callPluginHost('PluginFileAPI.generateNotePng', () =>
+            PluginFileAPI.generateNotePng({
+              notePath: notebook.path,
+              page: index,
+              times: 1,
+              pngPath: path,
+              type: 1,
+            }),
+          ),
         );
         requireResult(generated, `Page ${position} could not be rendered.`);
 
@@ -132,7 +150,11 @@ export async function cleanupRenderedPages(
 
 async function fileDigest(path: string): Promise<string> {
   const response = await fetch(fileUri(path));
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = new Uint8Array(
+    await callPluginHost('Response.arrayBuffer', () =>
+      response.arrayBuffer(),
+    ),
+  );
   if (bytes.length === 0) {
     throw new Error('A rendered page could not be read back for verification.');
   }
@@ -145,20 +167,38 @@ function notebookName(path: string): string {
 }
 
 async function saveCurrentNotebookIfSupported(): Promise<boolean> {
-  try {
-    const saved = asResponse<boolean>(await PluginNoteAPI.saveCurrentNote());
-    requireResult(saved, 'The open NOTE could not be saved.');
-    return true;
-  } catch (error) {
-    if (isMissingFunction(error)) {
-      return false;
-    }
-    throw error;
+  const response = await callOptionalPluginHost(() =>
+    PluginNoteAPI.saveCurrentNote(),
+  );
+  if (response === undefined) {
+    return false;
   }
+  const saved = asResponse<boolean>(response);
+  requireResult(saved, 'The open NOTE could not be saved.');
+  return true;
 }
 
-function isMissingFunction(error: unknown): boolean {
-  return error instanceof Error && /not a function/i.test(error.message);
+async function pageCountResponse(
+  path: string,
+): Promise<Object | null | undefined> {
+  try {
+    return await callPluginHost('PluginFileAPI.getNoteTotalPageNum', () =>
+      PluginFileAPI.getNoteTotalPageNum(path),
+    );
+  } catch (error) {
+    if (
+      !(
+        error instanceof PluginHostCapabilityError &&
+        error.capability === 'PluginFileAPI.getNoteTotalPageNum'
+      )
+    ) {
+      throw error;
+    }
+  }
+
+  return callPluginHost('PluginDocAPI.getCurrentTotalPages', () =>
+    PluginDocAPI.getCurrentTotalPages(),
+  );
 }
 
 function requireResult<T>(response: APIResponse<T>, fallback: string): T {
