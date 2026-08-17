@@ -41,11 +41,16 @@ endpoint; restarting the plugin or tablet may require pairing again.
 
 For every explicit send, the plugin:
 
-1. saves the open NOTE through the official SDK;
+1. asks the official SDK to save the open NOTE;
 2. renders its pages as PNGs in the SDK-provided plugin directory;
 3. hashes every page and the ordered revision;
 4. uploads the complete ordered page set over HTTPS; and
 5. removes the temporary rendered PNGs.
+
+Some PluginHost versions do not expose the SDK's `saveCurrentNote` function. On those
+hosts, the plugin renders the persisted NOTE instead and warns the author to verify that
+the private draft includes their latest strokes. A failed save still stops the send; this
+fallback applies only when the host function itself is unavailable.
 
 ## Build
 
@@ -71,7 +76,9 @@ packaging, and installation instructions.
 ## Device contract
 
 - The toolbar action is registered only in NOTE.
-- `saveCurrentNote` runs before the current path, page count, or renderer is used.
+- `saveCurrentNote` runs before the current path, page count, or renderer is used when the
+  host provides it. Otherwise the plugin renders the persisted NOTE and shows a review
+  warning after upload.
 - Pages are rendered zero-based with `generateNotePng`, sent one-based as
   `page-0001.png`, `page-0002.png`, and so on.
 - A stable random source UUID is stored as empty directory markers under the SDK-provided

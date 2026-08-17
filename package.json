@@ -1,6 +1,6 @@
 {
   "name": "HandwrittenBlog",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Open-source Supernote plugin for sending notebooks to handwritten.blog",
   "private": true,
   "license": "MIT",
@@ -19,7 +19,7 @@
     "js-sha256": "^0.11.1",
     "react": "19.0.0",
     "react-native": "0.79.2",
-    "sn-plugin-lib": "^0.1.19"
+    "sn-plugin-lib": "0.1.43"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
