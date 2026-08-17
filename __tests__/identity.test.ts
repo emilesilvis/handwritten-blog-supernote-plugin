@@ -75,3 +75,53 @@ test('names an unavailable plugin-directory listing bridge', async () => {
     /FileUtils\.listFiles.*device model.*firmware/i,
   );
 });
+
+test('reads the object entries returned by the native Android file module', async () => {
+  (FileUtils.listFiles as jest.Mock).mockResolvedValue([
+    {
+      path: '/plugin/handwritten-blog-identity--source-1--4d6f726e696e67',
+      type: 0,
+    },
+  ]);
+
+  await expect(knownIdentities('/plugin')).resolves.toEqual([
+    {sourceId: 'source-1', displayName: 'Morning'},
+  ]);
+});
+
+test.each([
+  {filePath: '/plugin/handwritten-blog-identity--source-1--4d6f726e696e67'},
+  {fullPath: '/plugin/handwritten-blog-identity--source-1--4d6f726e696e67'},
+  {absolutePath: '/plugin/handwritten-blog-identity--source-1--4d6f726e696e67'},
+  {name: 'handwritten-blog-identity--source-1--4d6f726e696e67'},
+  {fileName: 'handwritten-blog-identity--source-1--4d6f726e696e67'},
+  {displayName: 'handwritten-blog-identity--source-1--4d6f726e696e67'},
+])('reads compatibility entry shape %j', async entry => {
+  (FileUtils.listFiles as jest.Mock).mockResolvedValue([entry]);
+
+  await expect(knownIdentities('/plugin')).resolves.toEqual([
+    {sourceId: 'source-1', displayName: 'Morning'},
+  ]);
+});
+
+test.each(['files', 'list', 'items'])('reads a list wrapped in %s', async key => {
+  (FileUtils.listFiles as jest.Mock).mockResolvedValue({
+    [key]: [
+      {
+        path: '/plugin/handwritten-blog-identity--source-1--4d6f726e696e67',
+      },
+    ],
+  });
+
+  await expect(knownIdentities('/plugin')).resolves.toEqual([
+    {sourceId: 'source-1', displayName: 'Morning'},
+  ]);
+});
+
+test('rejects an unknown wrapped response instead of hiding it as an empty list', async () => {
+  (FileUtils.listFiles as jest.Mock).mockResolvedValue({entries: []});
+
+  await expect(knownIdentities('/plugin')).rejects.toThrow(
+    /unsupported response/i,
+  );
+});
