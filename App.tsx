@@ -13,6 +13,12 @@ import {
 import {PluginManager} from 'sn-plugin-lib';
 import {APIError, pair, uploadNotebook} from './src/api';
 import {
+  formatDiagnosticTrace,
+  PLUGIN_VERSION,
+  recordDiagnosticEvent,
+  startDiagnosticTrace,
+} from './src/diagnostics';
+import {
   createIdentity,
   identityForPath,
   knownIdentities as loadKnownIdentities,
@@ -46,6 +52,7 @@ function App(): React.JSX.Element {
   const [pairingCode, setPairingCode] = useState('');
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState('');
+  const [diagnosticReport, setDiagnosticReport] = useState('');
   const [pendingNotebook, setPendingNotebook] =
     useState<NotebookContext | null>(null);
   const [identityChoices, setIdentityChoices] = useState<NotebookIdentity[]>(
@@ -53,25 +60,35 @@ function App(): React.JSX.Element {
   );
 
   async function handlePair(): Promise<void> {
+    startDiagnosticTrace('pair');
+    setDiagnosticReport('');
+    recordDiagnosticEvent('stage', 'exchange pairing code');
     setStage('checking');
     setMessage('Pairing securely…');
     try {
+      recordDiagnosticEvent('call', 'POST pair request');
       const result = await pair(pairingCode);
+      recordDiagnosticEvent('ok', 'POST pair request');
       sessionBearer = result.bearer;
       sessionUploadUrl = result.upload_url;
       setPairingCode('');
       setMessage('Connected for this plugin session.');
       setStage('ready');
     } catch (error) {
+      recordDiagnosticEvent('error', 'POST pair request', error);
       showError(error);
     }
   }
 
   async function handleSend(): Promise<void> {
+    startDiagnosticTrace('send');
+    setDiagnosticReport('');
+    recordDiagnosticEvent('stage', 'inspect NOTE');
     setStage('checking');
     setMessage('Saving and checking the open NOTE…');
     try {
       const notebook = await currentNotebook();
+      recordDiagnosticEvent('stage', 'resolve notebook identity');
       const identity = await identityForPath(
         notebook.pluginDirectory,
         notebook.path,
@@ -81,6 +98,7 @@ function App(): React.JSX.Element {
       } else {
         const identities = await loadKnownIdentities(notebook.pluginDirectory);
         if (identities.length > 0) {
+          recordDiagnosticEvent('stage', 'await identity choice');
           setIdentityChoices(identities);
           setPendingNotebook(notebook);
           setStage('choose_identity');
@@ -111,15 +129,18 @@ function App(): React.JSX.Element {
     }
 
     try {
+      recordDiagnosticEvent('stage', 'render NOTE');
       setStage('rendering');
       const rendered = await renderNotebook(notebook, (page, total) => {
         setProgress(`Rendering page ${page} of ${total}…`);
       });
       setStage('uploading');
       setProgress(`Uploading ${rendered.pages.length} rendered pages…`);
+      recordDiagnosticEvent('stage', 'upload rendered pages');
 
       let result;
       try {
+        recordDiagnosticEvent('call', 'POST notebook upload');
         result = await uploadNotebook(
           sessionUploadUrl,
           sessionBearer,
@@ -135,10 +156,15 @@ function App(): React.JSX.Element {
           },
           rendered.pages,
         );
+        recordDiagnosticEvent('ok', 'POST notebook upload');
+      } catch (error) {
+        recordDiagnosticEvent('error', 'POST notebook upload', error);
+        throw error;
       } finally {
         await cleanupRenderedPages(rendered.pages);
       }
 
+      recordDiagnosticEvent('stage', 'upload accepted');
       setMessage(
         [
           successMessage(result.status),
@@ -164,6 +190,7 @@ function App(): React.JSX.Element {
     setPendingNotebook(null);
     setStage('checking');
     try {
+      recordDiagnosticEvent('stage', 'reuse notebook identity');
       await send(
         notebook,
         await rebindIdentity(
@@ -186,6 +213,7 @@ function App(): React.JSX.Element {
     setPendingNotebook(null);
     setStage('checking');
     try {
+      recordDiagnosticEvent('stage', 'create notebook identity');
       await send(
         notebook,
         await createIdentity(
@@ -204,10 +232,10 @@ function App(): React.JSX.Element {
       sessionBearer = null;
       sessionUploadUrl = null;
     }
+    const diagnostic = formatDiagnosticTrace(error);
     setProgress('');
-    setMessage(
-      error instanceof Error ? error.message : 'The send did not finish.',
-    );
+    setMessage(diagnostic.message);
+    setDiagnosticReport(diagnostic.report);
     setStage('error');
   }
 
@@ -303,15 +331,28 @@ function App(): React.JSX.Element {
             style={[styles.panel, styles.errorPanel]}
             accessibilityLiveRegion="assertive">
             <Text style={styles.errorText}>{message}</Text>
+            <Text style={styles.diagnosticHeading}>Diagnostic trace</Text>
+            <Text style={styles.diagnosticHint}>
+              Photograph this complete trace and send it with your device model
+              and firmware version. Private credentials and NOTE paths are
+              redacted.
+            </Text>
+            <Text selectable style={styles.diagnosticText}>
+              {diagnosticReport}
+            </Text>
             <PrimaryButton
               label={sessionBearer ? 'Try again' : 'Enter a new code'}
-              onPress={() => setStage(sessionBearer ? 'ready' : 'pairing')}
+              onPress={() => {
+                setDiagnosticReport('');
+                setStage(sessionBearer ? 'ready' : 'pairing');
+              }}
             />
           </View>
         )}
 
         <Text style={styles.footnote}>
-          Private device spike · Nothing is published automatically
+          Plugin {PLUGIN_VERSION} · Private device spike · Nothing is published
+          automatically
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -451,6 +492,27 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     color: '#7c2924',
     fontWeight: '600',
+  },
+  diagnosticHeading: {
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#4f2020',
+    fontWeight: '700',
+    marginTop: 20,
+  },
+  diagnosticHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#654545',
+    marginTop: 6,
+  },
+  diagnosticText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#351818',
+    fontFamily: 'monospace',
+    marginTop: 12,
+    marginBottom: 20,
   },
   footnote: {
     fontSize: 14,

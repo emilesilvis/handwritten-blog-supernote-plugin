@@ -57,6 +57,11 @@ current-document page count. Other missing runtime capabilities produce a named 
 error instead of the unhelpful `undefined is not a function`; report that message together with
 the device model and firmware version.
 
+Any failed pair or send also displays a sanitized diagnostic trace with the plugin version,
+attempted stages, host capabilities, error value and JavaScript stack. Photograph the complete
+trace together with the device model and firmware version. Pairing codes, bearer credentials,
+URLs, NOTE paths and generated identifiers are redacted from the report.
+
 ## Build
 
 Node.js 18 or later is required.
@@ -70,7 +75,8 @@ npm test -- --runInBand
 ```
 
 The test suite includes an app-level PluginHost compatibility matrix for missing save, path,
-page-count, storage, renderer and rendered-file readback capabilities.
+page-count, storage, renderer and rendered-file readback capabilities, plus diagnostic trace
+formatting and redaction coverage.
 
 The installable package is written to `build/outputs/HandwrittenBlog.snplg`. For a
 non-production device test, change `API_BASE_URL` in `src/api.ts` to the HTTPS acceptance
