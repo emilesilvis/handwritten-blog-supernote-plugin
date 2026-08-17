@@ -15,6 +15,7 @@ export type NotebookContext = {
   displayName: string;
   pageCount: number;
   pluginDirectory: string;
+  forceSaved: boolean;
 };
 
 type APIResponse<T> = {
@@ -24,8 +25,7 @@ type APIResponse<T> = {
 };
 
 export async function currentNotebook(): Promise<NotebookContext> {
-  const saved = asResponse<boolean>(await PluginNoteAPI.saveCurrentNote());
-  requireResult(saved, 'The open NOTE could not be saved.');
+  const forceSaved = await saveCurrentNotebookIfSupported();
 
   const pathResult = asResponse<string>(
     await PluginCommAPI.getCurrentFilePath(),
@@ -61,6 +61,7 @@ export async function currentNotebook(): Promise<NotebookContext> {
     displayName: notebookName(path),
     pageCount,
     pluginDirectory,
+    forceSaved,
   };
 }
 
@@ -141,6 +142,23 @@ async function fileDigest(path: string): Promise<string> {
 function notebookName(path: string): string {
   const filename = path.split('/').pop() || 'Supernote notebook';
   return filename.replace(/\.note$/i, '') || 'Supernote notebook';
+}
+
+async function saveCurrentNotebookIfSupported(): Promise<boolean> {
+  try {
+    const saved = asResponse<boolean>(await PluginNoteAPI.saveCurrentNote());
+    requireResult(saved, 'The open NOTE could not be saved.');
+    return true;
+  } catch (error) {
+    if (isMissingFunction(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isMissingFunction(error: unknown): boolean {
+  return error instanceof Error && /not a function/i.test(error.message);
 }
 
 function requireResult<T>(response: APIResponse<T>, fallback: string): T {

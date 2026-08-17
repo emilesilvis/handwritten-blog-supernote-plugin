@@ -139,7 +139,16 @@ function App(): React.JSX.Element {
         await cleanupRenderedPages(rendered.pages);
       }
 
-      setMessage(successMessage(result.status));
+      setMessage(
+        [
+          successMessage(result.status),
+          notebook.forceSaved
+            ? null
+            : 'This tablet could not force-save first. Check that the draft includes your latest strokes.',
+        ]
+          .filter(Boolean)
+          .join(' '),
+      );
       setProgress('');
       setStage('done');
     } catch (error) {
@@ -217,9 +226,9 @@ function App(): React.JSX.Element {
         <Text style={styles.eyebrow}>HANDWRITTEN.BLOG</Text>
         <Text style={styles.title}>Send this NOTE</Text>
         <Text style={styles.explanation}>
-          The plugin saves the open note, renders its ordered pages on this
-          tablet, and sends only those PNGs. Your .note file and Supernote
-          account stay here.
+          The plugin saves the open note when supported, renders its ordered
+          pages on this tablet, and sends only those PNGs. Your .note file and
+          Supernote account stay here.
         </Text>
 
         {stage === 'pairing' && (

@@ -57,12 +57,40 @@ test('saves the open NOTE before reading its path and page count', async () => {
     displayName: 'Morning',
     pageCount: 2,
     pluginDirectory: '/plugin',
+    forceSaved: true,
   });
   expect(
     (PluginNoteAPI.saveCurrentNote as jest.Mock).mock.invocationCallOrder[0],
   ).toBeLessThan(
     (PluginCommAPI.getCurrentFilePath as jest.Mock).mock.invocationCallOrder[0],
   );
+});
+
+test('uses the persisted NOTE when this PluginHost cannot force-save it', async () => {
+  (PluginNoteAPI.saveCurrentNote as jest.Mock).mockRejectedValue(
+    new TypeError('undefined is not a function'),
+  );
+
+  const notebook = await currentNotebook();
+
+  expect(notebook).toEqual({
+    path: '/storage/emulated/0/Note/Morning.note',
+    displayName: 'Morning',
+    pageCount: 2,
+    pluginDirectory: '/plugin',
+    forceSaved: false,
+  });
+  expect(PluginCommAPI.getCurrentFilePath).toHaveBeenCalledTimes(1);
+});
+
+test('stops when an available save function reports a real failure', async () => {
+  (PluginNoteAPI.saveCurrentNote as jest.Mock).mockResolvedValue({
+    success: false,
+    error: {message: 'The NOTE is busy.'},
+  });
+
+  await expect(currentNotebook()).rejects.toThrow('The NOTE is busy.');
+  expect(PluginCommAPI.getCurrentFilePath).not.toHaveBeenCalled();
 });
 
 test('renders zero-based pages, hashes their bytes, and builds the ordered revision', async () => {
@@ -81,6 +109,7 @@ test('renders zero-based pages, hashes their bytes, and builds the ordered revis
       displayName: 'Morning',
       pageCount: 2,
       pluginDirectory: '/plugin',
+      forceSaved: true,
     },
     (page, total) => progress.push(`${page}/${total}`),
   );
