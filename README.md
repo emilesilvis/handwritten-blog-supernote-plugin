@@ -52,6 +52,11 @@ hosts, the plugin renders the persisted NOTE instead and warns the author to ver
 the private draft includes their latest strokes. A failed save still stops the send; this
 fallback applies only when the host function itself is unavailable.
 
+If the path-based NOTE page-count bridge is unavailable, the plugin uses the SDK's
+current-document page count. Other missing runtime capabilities produce a named compatibility
+error instead of the unhelpful `undefined is not a function`; report that message together with
+the device model and firmware version.
+
 ## Build
 
 Node.js 18 or later is required.
@@ -63,6 +68,9 @@ npx tsc --noEmit
 npm test -- --runInBand
 ./buildPlugin.sh
 ```
+
+The test suite includes an app-level PluginHost compatibility matrix for missing save, path,
+page-count, storage, renderer and rendered-file readback capabilities.
 
 The installable package is written to `build/outputs/HandwrittenBlog.snplg`. For a
 non-production device test, change `API_BASE_URL` in `src/api.ts` to the HTTPS acceptance

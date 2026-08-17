@@ -65,3 +65,13 @@ test('an explicit rename rebind keeps the same source id', async () => {
   expect(await identityForPath('/plugin', '/notes/New.note')).toEqual(rebound);
   expect(await knownIdentities('/plugin')).toEqual([rebound]);
 });
+
+test('names an unavailable plugin-directory listing bridge', async () => {
+  (FileUtils.listFiles as jest.Mock).mockRejectedValue(
+    new TypeError('undefined is not a function'),
+  );
+
+  await expect(knownIdentities('/plugin')).rejects.toThrow(
+    /FileUtils\.listFiles.*device model.*firmware/i,
+  );
+});

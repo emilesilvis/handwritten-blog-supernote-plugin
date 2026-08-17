@@ -2,6 +2,7 @@ import {sha256} from 'js-sha256';
 import {
   FileUtils,
   PluginCommAPI,
+  PluginDocAPI,
   PluginFileAPI,
   PluginManager,
   PluginNoteAPI,
@@ -19,6 +20,7 @@ jest.mock('sn-plugin-lib', () => ({
     makeDir: jest.fn(),
   },
   PluginCommAPI: {getCurrentFilePath: jest.fn()},
+  PluginDocAPI: {getCurrentTotalPages: jest.fn()},
   PluginFileAPI: {
     generateNotePng: jest.fn(),
     getNoteTotalPageNum: jest.fn(),
@@ -38,6 +40,9 @@ beforeEach(() => {
     response('/storage/emulated/0/Note/Morning.note'),
   );
   (PluginFileAPI.getNoteTotalPageNum as jest.Mock).mockResolvedValue(
+    response(2),
+  );
+  (PluginDocAPI.getCurrentTotalPages as jest.Mock).mockResolvedValue(
     response(2),
   );
   (PluginManager.getPluginDirPath as jest.Mock).mockResolvedValue('/plugin');
@@ -64,6 +69,7 @@ test('saves the open NOTE before reading its path and page count', async () => {
   ).toBeLessThan(
     (PluginCommAPI.getCurrentFilePath as jest.Mock).mock.invocationCallOrder[0],
   );
+  expect(PluginDocAPI.getCurrentTotalPages).not.toHaveBeenCalled();
 });
 
 test('uses the persisted NOTE when this PluginHost cannot force-save it', async () => {
@@ -81,6 +87,73 @@ test('uses the persisted NOTE when this PluginHost cannot force-save it', async 
     forceSaved: false,
   });
   expect(PluginCommAPI.getCurrentFilePath).toHaveBeenCalledTimes(1);
+});
+
+test('recognizes a missing save bridge reported outside the Error realm', async () => {
+  (PluginNoteAPI.saveCurrentNote as jest.Mock).mockRejectedValue({
+    message: 'undefined is not a function',
+  });
+
+  const notebook = await currentNotebook();
+
+  expect(notebook.forceSaved).toBe(false);
+  expect(PluginCommAPI.getCurrentFilePath).toHaveBeenCalledTimes(1);
+});
+
+test('uses the current-document page count when the path-based bridge is unavailable', async () => {
+  (PluginFileAPI.getNoteTotalPageNum as jest.Mock).mockRejectedValue(
+    new TypeError('undefined is not a function'),
+  );
+
+  const notebook = await currentNotebook();
+
+  expect(notebook.pageCount).toBe(2);
+  expect(PluginDocAPI.getCurrentTotalPages).toHaveBeenCalledTimes(1);
+});
+
+test('names the unavailable page-count bridge instead of exposing a raw runtime error', async () => {
+  (PluginFileAPI.getNoteTotalPageNum as jest.Mock).mockRejectedValue(
+    new TypeError('undefined is not a function'),
+  );
+  (PluginDocAPI.getCurrentTotalPages as jest.Mock).mockRejectedValue(
+    new TypeError('undefined is not a function'),
+  );
+
+  await expect(currentNotebook()).rejects.toThrow(
+    /PluginDocAPI\.getCurrentTotalPages.*device model.*firmware/i,
+  );
+});
+
+test('does not hide a real path-based page-count failure behind the fallback', async () => {
+  (PluginFileAPI.getNoteTotalPageNum as jest.Mock).mockResolvedValue({
+    success: false,
+    error: {message: 'The NOTE index is unavailable.'},
+  });
+
+  await expect(currentNotebook()).rejects.toThrow(
+    'The NOTE index is unavailable.',
+  );
+  expect(PluginDocAPI.getCurrentTotalPages).not.toHaveBeenCalled();
+});
+
+test('names an unavailable current-path bridge', async () => {
+  (PluginCommAPI.getCurrentFilePath as jest.Mock).mockRejectedValue(
+    new TypeError('undefined is not a function'),
+  );
+
+  await expect(currentNotebook()).rejects.toThrow(
+    /PluginCommAPI\.getCurrentFilePath.*device model.*firmware/i,
+  );
+});
+
+test('names an unavailable plugin-directory bridge', async () => {
+  (PluginManager.getPluginDirPath as jest.Mock).mockRejectedValue(
+    new TypeError('undefined is not a function'),
+  );
+
+  await expect(currentNotebook()).rejects.toThrow(
+    /PluginManager\.getPluginDirPath.*device model.*firmware/i,
+  );
 });
 
 test('stops when an available save function reports a real failure', async () => {
@@ -138,4 +211,40 @@ test('renders zero-based pages, hashes their bytes, and builds the ordered revis
 
   await cleanupRenderedPages(rendered.pages);
   expect(FileUtils.deleteFile).toHaveBeenCalledTimes(2);
+});
+
+test('names a runtime without rendered-file byte readback', async () => {
+  global.fetch = jest.fn().mockResolvedValue({}) as jest.Mock;
+
+  await expect(
+    renderNotebook(
+      {
+        path: '/notes/Morning.note',
+        displayName: 'Morning',
+        pageCount: 1,
+        pluginDirectory: '/plugin',
+        forceSaved: true,
+      },
+      jest.fn(),
+    ),
+  ).rejects.toThrow(/Response\.arrayBuffer.*device model.*firmware/i);
+});
+
+test('names an unavailable NOTE renderer bridge', async () => {
+  (PluginFileAPI.generateNotePng as jest.Mock).mockRejectedValue(
+    new TypeError('undefined is not a function'),
+  );
+
+  await expect(
+    renderNotebook(
+      {
+        path: '/notes/Morning.note',
+        displayName: 'Morning',
+        pageCount: 1,
+        pluginDirectory: '/plugin',
+        forceSaved: true,
+      },
+      jest.fn(),
+    ),
+  ).rejects.toThrow(/PluginFileAPI\.generateNotePng.*device model.*firmware/i);
 });
