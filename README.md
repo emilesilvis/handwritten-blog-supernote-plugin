@@ -4,6 +4,12 @@ This repository contains the open-source Supernote client for
 [handwritten.blog](https://handwritten.blog). It sends the pages of one explicitly open
 NOTE to the user's blog as a private draft.
 
+> **Looking for `HandwrittenBlog.snplg`?**
+> This repository contains the source code only; the compiled plugin is not included in the
+> repository or GitHub Releases. Sign in at
+> [handwritten.blog/supernote](https://handwritten.blog/supernote), enable the Supernote
+> integration, and download the installation package from the setup page.
+
 The plugin is built with Supernote's official plugin SDK. It is unofficial and is not
 endorsed by Supernote or Ratta.
 
